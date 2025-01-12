@@ -35,6 +35,8 @@ function onPageStructureChanged() {
     ) {
         // Check for transaction rows every second
         const checkForTransactions = setInterval(() => {
+
+            // Get all the transaction rows, determined by whether the row has an amount and a merchant
             const transactionRows = Array.from(
                 document.querySelectorAll('div[class*="TransactionsListRow"]')
             ).filter((row) => {
@@ -47,75 +49,55 @@ function onPageStructureChanged() {
             // If there are transactions, stop checking for them
             if (transactionRows.length > 0) {
                 clearInterval(checkForTransactions);
+                injectStylesIfNeeded();
 
-                // Check if the CSS has already been added
-                if (!document.getElementById("mmm-toast-styles")) {
-                    // Inject CSS
-                    const css = GM_getResourceText("MMMCSS");
-                    const style = document.createElement("style");
-                    style.id = "mmm-toast-styles"; // Set an ID for the style element
-                    style.textContent = css;
-                    document.head.appendChild(style);
-                }
-
-                // Add the button to each transaction row
+                // Use a single event listener for all buttons
                 transactionRows.forEach((row) => {
-                    // Check if the button is not already present
-                    if (!row.querySelector(".monarch-helper-button")) {
-                        let isAlreadySplit =
-                            getTransactionDetailsForRow(row).isSplitTransaction;
-
-                        // Check if the transaction is not already split
-                        if (!isAlreadySplit) {
-                            const buttonContainer = document.createElement("div");
-                            buttonContainer.className = "button-container";
-
-                            // Create the button
-                            const button = document.createElement("button");
-                            button.className = "monarch-helper-button";
-
-                            // Copy existing button class names
-                            const existingButton = document.querySelector(
-                                'button[class*="Button"]'
-                            );
-                            if (existingButton) {
-                                button.className += " " + existingButton.className;
-                            }
-
-                            // Add the button container class
-                            buttonContainer.className += " button-container";
-
-                            // Set the button text and style
-                            button.innerHTML = "✂️";
-
-                            // Add event listener to the button
-                            button.onclick = async (e) => {
-                                e.stopPropagation();
-                                await splittingButtonEventHandler(row);
-                            };
-
-                            // Append the button to the container
-                            buttonContainer.appendChild(button);
-
-                            // Insert the button container before the transaction icon container
-                            const transactionIconContainer = row.querySelector(
-                                'div[class*="TransactionOverview__Icons"]'
-                            );
-                            if (transactionIconContainer) {
-                                transactionIconContainer.parentNode.insertBefore(
-                                    buttonContainer,
-                                    transactionIconContainer
-                                );
-                            }
-                        }
-                    }
+                    addSplitButtonIfNeeded(row);
                 });
             }
         }, 1000);
     }
 }
 
-async function splittingButtonEventHandler(row) {
+
+// Add a split button to the transaction row if it is not already present
+function addSplitButtonIfNeeded(row) {
+    // Check if the split button is already present
+    if (!row.querySelector(".monarch-helper-button")) {
+        // Check if the transaction is already split
+        let isAlreadySplit = getTransactionDetailsForRow(row).isSplitTransaction;
+
+        // If the transaction is not already split, add the split button
+        if (!isAlreadySplit) {
+            const buttonContainer = document.createElement("div");
+            buttonContainer.className = "button-container";
+
+            const button = document.createElement("button");
+            button.className = "monarch-helper-button";
+            button.innerHTML = "✂️";
+            button.onclick = (e) => handleSplitButtonClick(e, row);
+            
+            buttonContainer.appendChild(button);
+
+            // Insert the button container before the transaction icon container
+            const transactionIconContainer = row.querySelector(
+                'div[class*="TransactionOverview__Icons"]'
+            );
+            if (transactionIconContainer) {
+                transactionIconContainer.parentNode.insertBefore(
+                    buttonContainer,
+                    transactionIconContainer
+                );
+            }
+        }
+    }
+}
+
+// Handle the split button click event
+async function handleSplitButtonClick(e, row) {
+    e.stopPropagation();
+    
     let transactionDetails = getTransactionDetailsForRow(row);
 
     // first split the transaction
@@ -157,15 +139,18 @@ async function splittingButtonEventHandler(row) {
 
 // Split a transaction and tag it with the given category and tags
 async function splitTransaction(transactionDetails, row) {
+    // Check if the transaction is not already split
     if (
         !transactionDetails.hasSplitTransactions &&
         !transactionDetails.isSplitTransaction
     ) {
+        // Calculate the split amount
         const totalAmount = parseFloat(transactionDetails.amount);
         const splitAmount = Math.round((totalAmount / 2) * 100) / 100; // Round to 2 decimal places
         const amount1 = splitAmount;
         const amount2 = totalAmount - splitAmount;
 
+        // Create the GraphQL payload
         const payload = {
             operationName: "Common_SplitTransactionMutation",
             variables: {
@@ -233,6 +218,7 @@ async function splitTransaction(transactionDetails, row) {
     }
 }
 
+// Add tags to the split transactions
 async function addTagsToSplitTransactions(transactionDetails, splitTransactions){
     // get the tag id for the split with deb tag
     var splitWithDebTagId = await getTagIdWithTagName(SplitWithDebTagName);
@@ -254,6 +240,7 @@ async function addTagsToSplitTransactions(transactionDetails, splitTransactions)
     var setTagsResponse1 = await setTransactionTags(splitTransactions[0].id, tagIds);
     var setTagsResponse2 = await setTransactionTags(splitTransactions[1].id, tagIds);
 
+    // Check for errors in the result and return a success message if there are no errors
     if (setTagsResponse1.setTransactionTags.errors === null && setTagsResponse2.setTransactionTags.errors === null) {
         return true;
     }
@@ -262,7 +249,7 @@ async function addTagsToSplitTransactions(transactionDetails, splitTransactions)
     }
 }
 
-// Function to hide a split transaction
+// Hide a split transaction
 async function hideSplitTransaction(transactionId) {
     const json = {
         operationName: "Web_TransactionDrawerUpdateTransaction",
@@ -329,7 +316,7 @@ async function hideSplitTransaction(transactionId) {
 
 }
 
-// Function to get the tag details by name
+// Get the tag details by name
 async function getTagIdWithTagName(tagName) {
     const json = {
         operationName: "GetHouseholdTransactionTags",
@@ -354,7 +341,7 @@ async function getTagIdWithTagName(tagName) {
     return tag ? tag.id : null; // Return the tag ID or null if not found
 }
 
-// Function to set tags for a transaction. TagIds is an array of tag IDs
+// Set tags for a transaction. TagIds is an array of tag IDs
 async function setTransactionTags(transactionId, tagIds) {
     const json = {
         operationName: "Web_SetTransactionTags",
@@ -400,6 +387,18 @@ async function setTransactionTags(transactionId, tagIds) {
 
 //---------------------- HELPER FUNCTIONS ----------------------
 
+// Inject the styles if they are not already injected
+function injectStylesIfNeeded() {
+    if (!document.getElementById("mmm-toast-styles")) {
+        const css = GM_getResourceText("MMMCSS");
+        const style = document.createElement("style");
+        style.id = "mmm-toast-styles";
+        style.textContent = css;
+        document.head.appendChild(style);
+    }
+}
+
+
 // Return attributes of a transaction for a given row by accessing the React fiber of the drawer toggle
 function getTransactionDetailsForRow(row) {
     let result = null;
@@ -438,15 +437,10 @@ function getTransactionDetailsForRow(row) {
 // Function to show a toast notification. Include a fade out duration parameter in seconds
 function showToast(message, type = "success", fadeOutDuration = 5) {
     const toast = document.createElement("div");
-    toast.className =
-        "toast-notification " +
-        (type === "success" ? "toast-success" : "toast-error");
+    toast.className = `toast-notification toast-${type}`;
     toast.innerText = message;
 
-    // Append the toast to the body
     document.body.appendChild(toast);
-
-    // Fade out and remove the toast after fadeOutDuration seconds
     setTimeout(() => {
         toast.style.opacity = "0";
         setTimeout(() => {
