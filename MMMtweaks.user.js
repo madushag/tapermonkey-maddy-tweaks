@@ -10,11 +10,14 @@
 // @resource     MMMCSS file://C:/DevStuff/tapermonkey/mmm-styles.css
 // @grant        GM_addStyle
 // @grant        GM_getResourceText
+// @grant        GM_xmlhttpRequest
 // ==/UserScript==
 
 const version = "1.0";
 const GRAPHQL_URL = "https://api.monarchmoney.com/graphql"; // Ensure this is defined
 const SplitWithDebTagName = "Split with Deb";
+const NeedToAddToSplitwiseTagName = "Need to add to Splitwise";
+const CapitalOneSavorAccountId = "160250994677913986";
 
 let currentUrl = window.location.href;
 
@@ -53,43 +56,143 @@ function onPageStructureChanged() {
 
                 // Use a single event listener for all buttons
                 transactionRows.forEach((row) => {
-                    addSplitButtonIfNeeded(row);
+                    addSplitButtonsIfNeeded(row);
                 });
             }
         }, 1000);
     }
 }
 
+// Get the current user's Splitwise ID
+async function getSplitwiseUserId() {
+    const splitwiseApiKey = "lOgA8iRLj4pbR2OmNJqNbtbd8zpzV567BKYXcuyR";
+    const splitwiseApiUrl = "https://secure.splitwise.com/api/v3.0/get_current_user";
 
-// Add a split button to the transaction row if it is not already present
-function addSplitButtonIfNeeded(row) {
-    // Check if the split button is already present
-    if (!row.querySelector(".monarch-helper-button")) {
-        // Check if the transaction is already split
-        let isAlreadySplit = getTransactionDetailsForRow(row).isSplitTransaction;
+    try {
+        const response = await GM.xmlHttpRequest({
+            method: "GET",
+            url: splitwiseApiUrl,
+            headers: {
+                "Authorization": `Bearer ${splitwiseApiKey}`
+            }
+        });
 
-        // If the transaction is not already split, add the split button
-        if (!isAlreadySplit) {
-            const buttonContainer = document.createElement("div");
-            buttonContainer.className = "button-container";
+        if (response.status === 200) {
+            const user = JSON.parse(response.responseText).user;
+            return user.id;
+        } else {
+            showToast(`Error getting Splitwise user: ${response.statusText}`, "error");
+            throw new Error(response.statusText);
+        }
+    } catch (error) {
+        showToast("Failed to get Splitwise user", "error");
+        throw error;
+    }
+}
+
+// Function to create a new expense in Splitwise
+async function createNewExpense(expenseDetails, myUserId, debUserId) {
+    const splitwiseApiKey = "lOgA8iRLj4pbR2OmNJqNbtbd8zpzV567BKYXcuyR";
+    const splitwiseApiUrl = "https://secure.splitwise.com/api/v3.0/create_expense";
+
+    const expenseData = {
+        "cost": expenseDetails.amount,
+        "description": "Purchase for " + expenseDetails.merchant.name + " not on Savor card",
+        "details": "Category: " + expenseDetails.category.name + ", Notes: " + expenseDetails.notes,
+        "date": expenseDetails.date,
+        "group_id": 0,
+        "users__0__user_id": myUserId,
+        "users__0__paid_share": expenseDetails.amount,
+        "users__0__owed_share": expenseDetails.amount / 2,
+        "users__1__user_id": debUserId,
+        "users__1__paid_share": 0,
+        "users__1__owed_share": expenseDetails.amount / 2
+    };
+
+    try {
+        const response = await GM.xmlHttpRequest({
+            method: "POST",
+            url: splitwiseApiUrl,
+            headers: {
+                "Authorization": `Bearer ${splitwiseApiKey}`,
+                "Content-Type": "application/json"
+            },
+            data: JSON.stringify(expenseData)
+        });
+
+        if (response.status === 200) {
+            showToast("Expense created successfully!", "success");
+            return JSON.parse(response.responseText);
+        } else {
+            showToast(`Error creating expense: ${response.statusText}`, "error");
+            throw new Error(response.statusText);
+        }
+    } catch (error) {
+        showToast("Failed to create expense", "error");
+        throw error;
+    }
+}
+
+// Add two split buttons to the transaction row if it is not already present.
+// One button to just split the transaction, and another button to split and post an expense to Splitwise
+function addSplitButtonsIfNeeded(row) {
+
+    // Check if the transaction is already split
+    let isAlreadySplit = getTransactionDetailsForRow(row).isSplitTransaction;
+
+    // If the transaction is not already split, add the split button
+    if (!isAlreadySplit) {
+
+        const buttonContainer = document.createElement("div");
+        buttonContainer.className = "button-container";
+         // Insert the button container before the transaction icon container
+         const transactionIconContainer = row.querySelector(
+            'div[class*="TransactionOverview__Icons"]'
+        );
+        if (transactionIconContainer) {
+            transactionIconContainer.parentNode.insertBefore(
+                buttonContainer,
+                transactionIconContainer
+            );
+        }
+
+        // Copy existing button class names
+        const existingButton = document.querySelector('button[class*="Button"]');
+
+        // Add a button to just split the transaction if it is not already present
+        if (!row.querySelector(".monarch-helper-button-split-only")) {
 
             const button = document.createElement("button");
             button.className = "monarch-helper-button";
-            button.innerHTML = "✂️";
-            button.onclick = (e) => handleSplitButtonClick(e, row);
-            
-            buttonContainer.appendChild(button);
 
-            // Insert the button container before the transaction icon container
-            const transactionIconContainer = row.querySelector(
-                'div[class*="TransactionOverview__Icons"]'
-            );
-            if (transactionIconContainer) {
-                transactionIconContainer.parentNode.insertBefore(
-                    buttonContainer,
-                    transactionIconContainer
-                );
-            }
+            // Set the button text and style
+            button.innerHTML = "✂️";
+            button.onclick = async (e) => await handleSplitButtonClick(e, row);
+
+            // Copy existing button class names
+            if (existingButton) button.className += " " + existingButton.className;
+
+            buttonContainer.appendChild(button);
+        }
+
+        // Add a button to split and post to Splitwise if it is not already present
+        if (!row.querySelector(".monarch-helper-button-split-and-post")) {
+
+            const button = document.createElement("button");
+            button.className = "monarch-helper-button";
+
+            // Set the button text and style
+            button.innerHTML = "📤"; 
+            button.onclick = async (e) => {
+                var userId = await getSplitwiseUserId();
+                // var expense = await createNewExpense(userId);
+                alert(userId);
+            };
+
+            // Copy existing button class names
+            if (existingButton) button.className += " " + existingButton.className;
+
+            buttonContainer.appendChild(button);
         }
     }
 }
@@ -97,7 +200,7 @@ function addSplitButtonIfNeeded(row) {
 // Handle the split button click event
 async function handleSplitButtonClick(e, row) {
     e.stopPropagation();
-    
+
     let transactionDetails = getTransactionDetailsForRow(row);
 
     // first split the transaction
@@ -219,9 +322,10 @@ async function splitTransaction(transactionDetails, row) {
 }
 
 // Add tags to the split transactions
-async function addTagsToSplitTransactions(transactionDetails, splitTransactions){
-    // get the tag id for the split with deb tag
+async function addTagsToSplitTransactions(transactionDetails, splitTransactions) {
+    // get the necessary tag IDs
     var splitWithDebTagId = await getTagIdWithTagName(SplitWithDebTagName);
+    var needToAddToSplitwiseTagId = await getTagIdWithTagName(NeedToAddToSplitwiseTagName);
 
     // Get all the tag IDs on the original transaction, thats not the split with deb tag
     let tagIds = transactionDetails.tags
@@ -234,7 +338,12 @@ async function addTagsToSplitTransactions(transactionDetails, splitTransactions)
     } else {
         tagIds = [splitWithDebTagId];
     }
-    
+
+    // If the transaction is not from the Capital One Savor account, add the need to add to Splitwise tag
+    if (transactionDetails.accountId !== CapitalOneSavorAccountId) {
+        tagIds.push(needToAddToSplitwiseTagId);
+    }
+
     // Now apply tagIds on to the two split transactions. 
     // Check for errors in the result and return a success message if there are no errors
     var setTagsResponse1 = await setTransactionTags(splitTransactions[0].id, tagIds);
@@ -414,6 +523,7 @@ function getTransactionDetailsForRow(row) {
                     let transactionDetails = fiber.memoizedProps.transaction;
                     result = {
                         id: transactionDetails.id,
+                        accountId: transactionDetails.account.id,
                         amount: transactionDetails.amount,
                         date: transactionDetails.date,
                         hasSplitTransactions: transactionDetails.hasSplitTransactions,
