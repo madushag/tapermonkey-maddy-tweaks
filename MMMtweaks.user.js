@@ -4,7 +4,7 @@
 // @version      0.1
 // @description  Enhance Monarch Money transaction page functionality
 // @author       You
-// @match        https://app.monarchmoney.com/transactions
+// @match        https://app.monarchmoney.com/*
 // @grant        none
 // @run-at       document-idle
 // @resource     MMMCSS https://github.com/madushag/tapermonkey-maddy-tweaks/blob/main/mmm-styles.css
