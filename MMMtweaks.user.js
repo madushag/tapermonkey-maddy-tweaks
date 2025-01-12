@@ -3,9 +3,8 @@
 // @namespace    http://tampermonkey.net/
 // @version      0.1
 // @description  Enhance Monarch Money transaction page functionality
-// @author       You
+// @author       Madusha G.
 // @match        https://app.monarchmoney.com/*
-// @grant        none
 // @run-at       document-idle
 // @resource     MMMCSS https://github.com/madushag/tapermonkey-maddy-tweaks/blob/main/mmm-styles.css
 // @resource     sw_api_key file://C:/DevStuff/tapermonkey-maddy-tweaks/sw_api_key.js
