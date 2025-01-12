@@ -29,5 +29,6 @@
 
 /* Margin for button container */
 .button-container {
-    margin-left: 10px;
+    display: flex;
+    gap: 0px;
 }
