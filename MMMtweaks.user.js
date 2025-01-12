@@ -8,7 +8,6 @@
 // @grant        none
 // @run-at       document-idle
 // @resource     MMMCSS https://github.com/madushag/tapermonkey-maddy-tweaks/blob/main/mmm-styles.css
-// @resource     sw_api_key file://C:/DevStuff/tapermonkey-maddy-tweaks/sw_api_key.js
 // @grant        GM_addStyle
 // @grant        GM_getResourceText
 // @grant        GM_xmlhttpRequest
