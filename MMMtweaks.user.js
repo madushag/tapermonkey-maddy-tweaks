@@ -88,15 +88,8 @@ function addSplitButtonsIfNeeded(row) {
             buttonContainer.className = "button-container";
 
             // Insert the button container before the transaction icon container
-            const transactionIconContainer = row.querySelector(
-                'div[class*="TransactionOverview__Icons"]'
-            );
-            if (transactionIconContainer) {
-                transactionIconContainer.parentNode.insertBefore(
-                    buttonContainer,
-                    transactionIconContainer
-                );
-            }
+            const transactionIconContainer = row.querySelector('div[class*="TransactionOverview__Icons"]');
+            if (transactionIconContainer) transactionIconContainer.parentNode.insertBefore(buttonContainer, transactionIconContainer);
 
             // Add the split button to the button container
             const buttonSplit = document.createElement("button");
@@ -106,15 +99,15 @@ function addSplitButtonsIfNeeded(row) {
             buttonSplit.onclick = (e) => handleSplitButtonClick(e, row);
             buttonContainer.appendChild(buttonSplit);
 
-            // Add the split and post to SW button to the button container
-            const buttonSplitAndPostToSW = document.createElement("button");
-            buttonSplitAndPostToSW.className = "monarch-helper-button";
-            if (existingButton) buttonSplitAndPostToSW.className += " " + existingButton.className;
-            buttonSplitAndPostToSW.innerHTML = "📤";
-            buttonSplitAndPostToSW.onclick = async (e) => {
-                handleSplitAndPostToSWButtonClick(e, row);
-            };
-            buttonContainer.appendChild(buttonSplitAndPostToSW);
+            // Add the split and post to SW button to the button container, if the transaction is not from the Capital One Savor account
+            if (getTransactionDetailsForRow(row).accountId !== CapitalOneSavorAccountId) {
+                const buttonSplitAndPostToSW = document.createElement("button");
+                buttonSplitAndPostToSW.className = "monarch-helper-button";
+                if (existingButton) buttonSplitAndPostToSW.className += " " + existingButton.className;
+                buttonSplitAndPostToSW.innerHTML = "📤";
+                buttonSplitAndPostToSW.onclick = async (e) => handleSplitAndPostToSWButtonClick(e, row);
+                buttonContainer.appendChild(buttonSplitAndPostToSW);
+            }
         }
     }
 }
