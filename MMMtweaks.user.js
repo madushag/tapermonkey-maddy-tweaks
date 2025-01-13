@@ -21,12 +21,10 @@ const NeedToAddToSplitwiseTagName = "Need to add to Splitwise";
 const CapitalOneSavorAccountId = "160250994677913986";
 const DebSplitwiseUserId = 782502;
 const MySplitwiseUserId = 139530;
+const HomeRevereSWGroupId = 1708251;
 
 const scriptText = GM_getResourceText("sw_api_key");
-
 const SplitwiseApiKey = scriptText;
-
-let currentUrl = window.location.href;
 
 // Create a MutationObserver to watch for changes in the URL
 const observer = new MutationObserver(() => {
@@ -448,6 +446,8 @@ async function getSplitwiseUserId() {
 // Function to create a new expense in Splitwise
 async function addExpenseToSplitwise(expenseDetails, myUserId, debUserId) {
     const splitwiseApiUrl = "https://secure.splitwise.com/api/v3.0/create_expense";
+    let groupId = 0;
+    let description = expenseDetails.merchant.name + " charged not on Savor card";
 
     var expenseAmount = expenseDetails.amount * -1;
 
@@ -460,12 +460,27 @@ async function addExpenseToSplitwise(expenseDetails, myUserId, debUserId) {
         myOwedShare = myOwedShare - (myOwedShare + debOwedShare - expenseAmount);
     }
 
+    if (expenseDetails.category.name === "Gas Bill") {
+        var monthName = new Date(expenseDetails.date).toLocaleString('default', { month: 'long' });
+        var year = expenseDetails.date.split("-")[0];
+        groupId = HomeRevereSWGroupId;
+        description = "Gas - " + year + " " + monthName;
+    }
+    else if (expenseDetails.category.name === "Electric Bill") {
+        var monthName = new Date(expenseDetails.date).toLocaleString('default', { month: 'long' });
+        var year = expenseDetails.date.split("-")[0];
+        groupId = HomeRevereSWGroupId;
+        description = "Electric - " + year + " " + monthName;
+    }
+
+    
+    // Create the expense data object
     const expenseData = {
         "cost": expenseAmount.toString(),
-        "description": "Purchase for " + expenseDetails.merchant.name + " not on Savor card",
+        "description": description,
         "details": "Category: " + expenseDetails.category.name + ", Notes: " + expenseDetails.notes,
         "date": expenseDetails.date,
-        "group_id": 0,
+        "group_id": groupId,
         "users__0__user_id": myUserId,
         "users__0__paid_share": expenseAmount.toString(),
         "users__0__owed_share": myOwedShare.toString(),
