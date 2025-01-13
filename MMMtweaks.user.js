@@ -6,7 +6,7 @@
 // @author       Madusha G.
 // @match        https://app.monarchmoney.com/*
 // @run-at       document-idle
-// @resource     MMMCSS https://raw.githubusercontent.com/madushag/tapermonkey-maddy-tweaks/refs/heads/main/mmm-styles.css?token=GHSAT0AAAAAAC4IFLVQ7TF34PXBX6DSGZS4Z4EJNLQ
+// @resource     MMMCSS https://raw.githubusercontent.com/madushag/tapermonkey-maddy-tweaks/refs/heads/main/mmm-styles.css
 // @resource     sw_api_key file://C:/DevStuff/tapermonkey-maddy-tweaks/sw_api_key.js
 // @grant        GM_addStyle
 // @grant        GM_getResourceText
