@@ -519,7 +519,7 @@ async function addExpenseToSplitwise(expenseDetails, myUserId, debUserId) {
 // Inject the styles if they are not already injected
 function injectStylesIfNeeded() {
     if (!document.getElementById("mmm-toast-styles")) {
-        const css = GM_getResourceURL("MMMCSS");
+        const css = GM_getResourceText("MMMCSS");
         const style = document.createElement("style");
         style.id = "mmm-toast-styles";
         style.textContent = css;
