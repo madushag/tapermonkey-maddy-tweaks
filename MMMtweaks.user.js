@@ -36,23 +36,20 @@ observer.observe(document, { childList: true, subtree: true });
 
 // Core logic to handle the split button
 function onPageStructureChanged() {
+
     // Check if the page is the transactions page or the accounts details page
-    if (
-        window.location.href.includes("transactions") ||
-        window.location.href.includes("accounts/details")
-    ) {
+    if (window.location.href.includes("transactions") || window.location.href.includes("accounts/details")) {
         // Check for transaction rows every second
         const checkForTransactions = setInterval(() => {
 
             // Get all the transaction rows, determined by whether the row has an amount and a merchant
-            const transactionRows = Array.from(
-                document.querySelectorAll('div[class*="TransactionsListRow"]')
-            ).filter((row) => {
-                return (
-                    row.querySelector('div[class*="TransactionOverview__Amount"]') &&
-                    row.querySelector('div[class*="TransactionMerchantSelect"]')
-                );
-            });
+            const transactionRows = Array.from(document.querySelectorAll('div[class*="TransactionsListRow"]'))
+                .filter((row) => {
+                    return (
+                        row.querySelector('div[class*="TransactionOverview__Amount"]') &&
+                        row.querySelector('div[class*="TransactionMerchantSelect"]')
+                    );
+                });
 
             // If there are transactions, stop checking for them
             if (transactionRows.length > 0) {
@@ -62,6 +59,7 @@ function onPageStructureChanged() {
                 // Use a single event listener for all buttons
                 transactionRows.forEach((row) => {
                     addSplitButtonsIfNeeded(row);
+                    addUnsplitButtonIfNeeded(row);
                 });
             }
         }, 1000);
@@ -110,6 +108,37 @@ function addSplitButtonsIfNeeded(row) {
     }
 }
 
+// Add an unsplit button to the transaction row if it is not already present.
+function addUnsplitButtonIfNeeded(row) {
+
+    // Copy existing button class names
+    const existingButton = document.querySelector('button[class*="Button"]');
+
+    // Check if the unsplit button is already present
+    if (!row.querySelector(".monarch-helper-button")) {
+        // Check if the transaction is already split
+        let isAlreadySplit = getTransactionDetailsForRow(row).isSplitTransaction;
+
+        // If the transaction is already split, add the unsplit button
+        if (isAlreadySplit) {
+            const buttonContainer = document.createElement("div");
+            buttonContainer.className = "button-container";
+
+            // Insert the button container before the transaction icon container
+            const transactionIconContainer = row.querySelector('div[class*="TransactionOverview__Icons"]');
+            if (transactionIconContainer) transactionIconContainer.parentNode.insertBefore(buttonContainer, transactionIconContainer);
+
+            // Add the unsplit button to the button container
+            const buttonUnsplit = document.createElement("button");
+            buttonUnsplit.className = "monarch-helper-button";
+            if (existingButton) buttonUnsplit.className += " " + existingButton.className;
+            buttonUnsplit.innerHTML = "🔀"; // Merge/Split transaction button
+            buttonUnsplit.onclick = async (e) => handleUnsplitButtonClick(e, row);
+            buttonContainer.appendChild(buttonUnsplit);
+        }
+    }
+}
+
 function handleSplitAndPostToSWButtonClick(e, row) {
     e.stopPropagation();
 
@@ -119,22 +148,20 @@ function handleSplitAndPostToSWButtonClick(e, row) {
     }
 }
 
-
 // Handle the split button click event
 async function handleSplitButtonClick(e, row) {
     e.stopPropagation();
 
     let transactionDetails = getTransactionDetailsForRow(row);
 
+    let fullTransactionObject = getFullTransactionObject(row);
+
     // first split the transaction
     var splitResponse = await splitTransaction(transactionDetails, row);
 
     // if there were errors in the response then show an error message in a toast accordingly
     if (splitResponse && splitResponse.updateTransactionSplit.errors !== null) {
-        showToast(
-            `Error while splitting transaction ID ${transactionDetails.id}.`,
-            "error"
-        );
+        showToast(`Error while splitting transaction ID ${transactionDetails.id}.`, "error");
 
         return false;
     }
@@ -145,11 +172,7 @@ async function handleSplitButtonClick(e, row) {
 
         // if there were errors in the response then show an error message in a toast accordingly
         if (hideResponse && hideResponse.updateTransaction.errors !== null) {
-            showToast(
-                `Error while hiding transaction ID ${splitTransactionId}.`,
-                "error"
-            );
-
+            showToast(`Error while hiding transaction ID ${splitTransactionId}.`, "error");
             return false;
         }
         else {
@@ -157,24 +180,49 @@ async function handleSplitButtonClick(e, row) {
 
             // if there were no errors then show a success toast
             if (addTagsResponseSuccess) {
-                showToast(
-                    `Transaction ${transactionDetails.id} split successfully!`,
-                    "success"
-                );
+                showToast(`Transaction ${transactionDetails.id} split successfully!`, "success");
             }
 
+            // fullTransactionObject.isSplitTransaction = true;
+            // setFullTransactionObject(row, fullTransactionObject);
+
+            // // get div with class starting with AccountDetails__StyledTransactionsListWrapper-sc-
+            // var element = document.querySelector("div[class^='AccountDetails__StyledTransactionsListWrapper-sc-']");
+            // forceUpdateElement(element);
+
+            // everything went well, so return true
             return true;
         }
     }
 }
 
+async function handleUnsplitButtonClick(e, row) {
+    e.stopPropagation();
+
+    let transactionDetails = await getTransactionDetailsForRow(row);
+
+    // first get the transaction drawer details
+    var transactionDrawerDetails = await getTransactionDrawerDetails(transactionDetails, row);
+
+    // now unsplit the transaction
+    var unsplitResponse = await unsplitTransaction(transactionDrawerDetails.getTransaction.originalTransaction.id);
+
+    // if there were errors in the response then show an error message in a toast accordingly
+    if (unsplitResponse && unsplitResponse.updateTransactionSplit.errors !== null) {
+        showToast(`Error while unsplitting transaction ID ${transactionDrawerDetails.getTransaction.originalTransaction.id}.`, "error");
+        return false;
+    }
+    else {
+        // if there were no errors then show a success toast
+        showToast(`Transaction ${transactionDrawerDetails.getTransaction.originalTransaction.id} unsplit successfully!`, "success");
+        return true;
+    }   
+}   
+
 // Split a transaction and tag it with the given category and tags
 async function splitTransaction(transactionDetails, row) {
     // Check if the transaction is not already split
-    if (
-        !transactionDetails.hasSplitTransactions &&
-        !transactionDetails.isSplitTransaction
-    ) {
+    if (!transactionDetails.hasSplitTransactions && !transactionDetails.isSplitTransaction) {
         // Calculate the split amount
         const totalAmount = parseFloat(transactionDetails.amount);
         const splitAmount = Math.round((totalAmount / 2) * 100) / 100; // Round to 2 decimal places
@@ -247,6 +295,287 @@ async function splitTransaction(transactionDetails, row) {
 
         return await callGraphQL(payload);
     }
+}
+
+// Get the transaction drawer details
+async function getTransactionDrawerDetails(transactionDetails, row) {
+    // Check if the transaction is already split
+    if (transactionDetails.isSplitTransaction) {
+
+        // Create the GraphQL payload to get transaction drawer details
+        const payload = {
+            operationName: "GetTransactionDrawer",
+            variables: {
+                id: transactionDetails.id,
+                redirectPosted: true
+            },
+            query: `query GetTransactionDrawer($id: UUID!, $redirectPosted: Boolean) {
+                getTransaction(id: $id, redirectPosted: $redirectPosted) {
+                    id
+                    ...TransactionDrawerFields
+                    __typename
+                }
+                myHousehold {
+                    id
+                    users {
+                        id
+                        name
+                        __typename
+                    }
+                    __typename
+                }
+            }
+
+            fragment TransactionDrawerSplitMessageFields on Transaction {
+                id
+                amount
+                merchant {
+                    id
+                    name
+                    __typename
+                }
+                category {
+                    id
+                    icon
+                    name
+                    __typename
+                }
+                __typename
+            }
+
+            fragment OriginalTransactionFields on Transaction {
+                id
+                date
+                amount
+                merchant {
+                    id
+                    name
+                    __typename
+                }
+                __typename
+            }
+
+            fragment AccountLinkFields on Account {
+                id
+                displayName
+                icon
+                logoUrl
+                id
+                __typename
+            }
+
+            fragment TransactionOverviewFields on Transaction {
+                id
+                amount
+                pending
+                date
+                hideFromReports
+                plaidName
+                notes
+                isRecurring
+                reviewStatus
+                needsReview
+                isSplitTransaction
+                dataProviderDescription
+                attachments {
+                    id
+                    __typename
+                }
+                category {
+                    id
+                    name
+                    icon
+                    group {
+                        id
+                        type
+                        __typename
+                    }
+                    __typename
+                }
+                merchant {
+                    name
+                    id
+                    transactionsCount
+                    logoUrl
+                    recurringTransactionStream {
+                        frequency
+                        isActive
+                        __typename
+                    }
+                    __typename
+                }
+                tags {
+                    id
+                    name
+                    color
+                    order
+                    __typename
+                }
+                account {
+                    id
+                    displayName
+                    icon
+                    logoUrl
+                    __typename
+                }
+                __typename
+            }
+
+            fragment TransactionDrawerFields on Transaction {
+                id
+                amount
+                pending
+                isRecurring
+                date
+                originalDate
+                hideFromReports
+                needsReview
+                reviewedAt
+                reviewedByUser {
+                    id
+                    name
+                    __typename
+                }
+                plaidName
+                notes
+                hasSplitTransactions
+                isSplitTransaction
+                isManual
+                splitTransactions {
+                    id
+                    ...TransactionDrawerSplitMessageFields
+                    __typename
+                }
+                originalTransaction {
+                    id
+                    ...OriginalTransactionFields
+                    __typename
+                }
+                attachments {
+                    id
+                    publicId
+                    extension
+                    sizeBytes
+                    filename
+                    originalAssetUrl
+                    __typename
+                }
+                account {
+                    id
+                    hideTransactionsFromReports
+                    ...AccountLinkFields
+                    __typename
+                }
+                category {
+                    id
+                    __typename
+                }
+                goal {
+                    id
+                    __typename
+                }
+                merchant {
+                    id
+                    name
+                    transactionCount
+                    logoUrl
+                    recurringTransactionStream {
+                        id
+                        frequency
+                        __typename
+                    }
+                    __typename
+                }
+                tags {
+                    id
+                    name
+                    color
+                    order
+                    __typename
+                }
+                needsReviewByUser {
+                    id
+                    __typename
+                }
+                ...TransactionOverviewFields
+                __typename
+            }`
+        };
+
+
+        return await callGraphQL(payload);
+    }
+}
+
+// Unsplit a transaction
+async function unsplitTransaction(originalTransactionId) {
+    const payload = {
+        operationName: "Common_SplitTransactionMutation",
+        variables: {
+        input: {
+            transactionId: originalTransactionId,
+            splitData: []
+        }
+    },
+    query: `mutation Common_SplitTransactionMutation($input: UpdateTransactionSplitMutationInput!) {
+        updateTransactionSplit(input: $input) {
+            errors {
+                ...PayloadErrorFields
+                __typename
+            }
+            transaction {
+                id
+                hasSplitTransactions
+                splitTransactions {
+                    id
+                    amount
+                    notes
+                    hideFromReports
+                    reviewStatus
+                    merchant {
+                        id
+                        name
+                        __typename
+                    }
+                    category {
+                        id
+                        icon
+                        name
+                        __typename
+                    }
+                    goal {
+                        id
+                        __typename
+                    }
+                    needsReviewByUser {
+                        id
+                        __typename
+                    }
+                    tags {
+                        id
+                        __typename
+                    }
+                    __typename
+                }
+                __typename
+            }
+            __typename
+        }
+    }
+
+    fragment PayloadErrorFields on PayloadError {
+        fieldErrors {
+            field
+            messages
+            __typename
+        }
+        message
+                code
+                __typename
+            }`
+    };
+
+    return await callGraphQL(payload);  
 }
 
 // Add tags to the split transactions
@@ -535,6 +864,48 @@ function injectStylesIfNeeded() {
     }
 }
 
+// Set the full transaction object on the drawer toggle
+function setFullTransactionObject(row, fullTransactionObject) {
+    const drawerToggle = row.querySelector("button.fs-drawer-toggle");
+
+    if (drawerToggle) { 
+        const key = Object.keys(drawerToggle).find((key) =>
+            key.startsWith("__reactFiber$")
+        );
+        if (key) {
+            let fiber = drawerToggle[key];   
+            while (fiber) {
+                if (fiber.memoizedProps?.transaction) {
+                    fiber.memoizedProps.transaction = fullTransactionObject;
+                    return true;
+                }
+                fiber = fiber.return;
+            }
+        }
+    }
+    return false;
+}
+
+// Get the full transaction object from the drawer toggle
+function getFullTransactionObject(row) {
+    const drawerToggle = row.querySelector("button.fs-drawer-toggle");
+
+    if (drawerToggle) { 
+        const key = Object.keys(drawerToggle).find((key) =>
+            key.startsWith("__reactFiber$")
+        );
+        if (key) {
+            let fiber = drawerToggle[key];   
+            while (fiber) {
+                if (fiber.memoizedProps?.transaction) {
+                    return fiber.memoizedProps.transaction;
+                }
+                fiber = fiber.return;
+            }
+        }
+    }
+    return null;
+}
 
 // Return attributes of a transaction for a given row by accessing the React fiber of the drawer toggle
 function getTransactionDetailsForRow(row) {
@@ -575,6 +946,61 @@ function getTransactionDetailsForRow(row) {
     }
     return result;
 }
+
+// Force update a React component instance
+function forceUpdateElement(element) {
+    if (element) {
+        // Access the React fiber node
+        const fiberKey = Object.keys(element).find(key => key.startsWith("__reactFiber$"));
+        if (fiberKey) {
+            let fiber = element[fiberKey];
+
+            // Find the nearest class component instance
+            let instance = null;
+            let currentFiber = fiber;
+            while (currentFiber) {
+                if (currentFiber.stateNode && currentFiber.stateNode.forceUpdate) {
+                    instance = currentFiber.stateNode;
+                    break;
+                }
+                currentFiber = currentFiber.return;
+            }
+            
+        if (instance) {
+            instance.forceUpdate();
+            return true;
+        }
+        } else {
+            console.error('No React fiber node found for the element.');
+        }
+    } else {
+        console.error('Element not found.');
+    }
+
+    return false;
+}
+
+// Find and force update a specific transaction row
+function refreshTransactionRowByDateAndMerchant(date, merchantName) {
+    // Find all transaction rows
+    const transactionRows = document.querySelectorAll('div[class*="TransactionsListRow"]');
+    
+    // Find the specific row that matches both date and merchant
+    for (const row of transactionRows) {
+        const dateElement = row.querySelector('div[class*="TransactionDate"]');
+        const merchantElement = row.querySelector('div[class*="TransactionMerchantSelect"]');
+        
+        if (dateElement?.textContent.includes(date) && 
+            merchantElement?.textContent.includes(merchantName)) {
+            return forceUpdateTransactionRow(row);
+        }
+    }
+    return false;
+}
+
+// Example usage:
+// refreshTransactionRowByDateAndMerchant("January 9, 2025", "CRICO RMF");
+
 
 // Function to show a toast notification. Include a fade out duration parameter in seconds
 function showToast(message, type = "success", fadeOutDuration = 5) {
@@ -649,3 +1075,5 @@ function getGraphqlToken() {
     return JSON.parse(JSON.parse(localStorage.getItem("persist:root")).user)
         .token;
 }
+
+
