@@ -152,9 +152,8 @@ function handleSplitAndPostToSWButtonClick(e, row) {
 async function handleSplitButtonClick(e, row) {
     e.stopPropagation();
 
-    let transactionDetails = getTransactionDetailsForRow(row);
-
-    let fullTransactionObject = getFullTransactionObject(row);
+    let transactionDetails = await getTransactionDetailsForRow(row);
+    // let fullTransactionObject = getFullTransactionObject(row);
 
     // first split the transaction
     var splitResponse = await splitTransaction(transactionDetails, row);
@@ -162,7 +161,6 @@ async function handleSplitButtonClick(e, row) {
     // if there were errors in the response then show an error message in a toast accordingly
     if (splitResponse && splitResponse.updateTransactionSplit.errors !== null) {
         showToast(`Error while splitting transaction ID ${transactionDetails.id}.`, "error");
-
         return false;
     }
     else {
@@ -743,7 +741,6 @@ async function setTransactionTags(transactionId, tagIds) {
 
     return await callGraphQL(json);
 }
-
 
 //--------- SPLITWISE FUNCTIONS ---------
 // Get the current user's Splitwise ID
