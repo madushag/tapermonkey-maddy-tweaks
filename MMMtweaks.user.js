@@ -6,8 +6,10 @@
 // @author       Madusha G.
 // @match        https://app.monarchmoney.com/*
 // @run-at       document-idle
-// @resource     MMMCSS https://raw.githubusercontent.com/madushag/tapermonkey-maddy-tweaks/refs/heads/main/mmm-styles.css
+// @resource     MMMCSS file://C:/DevStuff/tapermonkey-maddy-tweaks/mmm-styles.css
 // @resource     sw_api_key file://C:/DevStuff/tapermonkey-maddy-tweaks/sw_api_key.js
+// @require      file://C:/DevStuff/tapermonkey-maddy-tweaks/MMM-custom-settings.js
+// @require      file://C:/DevStuff/tapermonkey-maddy-tweaks/mmm-helpers-graphql.js
 // @grant        GM_addStyle
 // @grant        GM_getResourceText
 // @grant        GM_getResourceURL
@@ -35,7 +37,9 @@ const observer = new MutationObserver(() => {
 observer.observe(document, { childList: true, subtree: true });
 
 // Core logic to handle the split button
-function onPageStructureChanged() {
+async function onPageStructureChanged() {
+
+    injectStylesIfNeeded();
 
     // Check if the page is the transactions page or the accounts details page
     if (window.location.href.includes("transactions") || window.location.href.includes("accounts/details")) {
@@ -54,7 +58,6 @@ function onPageStructureChanged() {
             // If there are transactions, stop checking for them
             if (transactionRows.length > 0) {
                 clearInterval(checkForTransactions);
-                injectStylesIfNeeded();
 
                 // Use a single event listener for all buttons
                 transactionRows.forEach((row) => {
@@ -64,11 +67,19 @@ function onPageStructureChanged() {
             }
         }, 1000);
     }
+
+    if (window.location.href.includes("settings/")) {
+        customSettings.addCustomSettingsLink();
+    }
 }
+
 
 // Add two split buttons to the transaction row if it is not already present.
 // One button to just split the transaction, and another button to split and post an expense to Splitwise
 function addSplitButtonsIfNeeded(row) {
+    // Get settings
+    const settings = JSON.parse(localStorage.getItem('mmm-settings') || '{}');
+    const transactionDetails = getTransactionDetailsForRow(row);
 
     // Copy existing button class names
     const existingButton = document.querySelector('button[class*="Button"]');
@@ -76,10 +87,21 @@ function addSplitButtonsIfNeeded(row) {
     // Check if the split button is already present
     if (!row.querySelector(".monarch-helper-button")) {
         // Check if the transaction is already split
-        let isAlreadySplit = getTransactionDetailsForRow(row).isSplitTransaction;
+        let isAlreadySplit = transactionDetails.isSplitTransaction;
 
-        // If the transaction is not already split, add the two buttons
+        // If the transaction is not already split, add the buttons or auto-split
         if (!isAlreadySplit) {
+            // Check if this is a Savor transaction that should be auto-split
+            if (settings.autoSplitSavor && transactionDetails.accountId === CapitalOneSavorAccountId) {
+                // Auto split and optionally post to Splitwise
+                handleSplitButtonClick(null, row).then(() => {
+                    if (settings.autoPostSplitwise) {
+                        handleSplitAndPostToSWButtonClick(null, row);
+                    }
+                });
+                return;
+            }
+
             const buttonContainer = document.createElement("div");
             buttonContainer.className = "button-container";
 
@@ -96,7 +118,7 @@ function addSplitButtonsIfNeeded(row) {
             buttonContainer.appendChild(buttonSplit);
 
             // Add the split and post to SW button to the button container, if the transaction is not from the Capital One Savor account
-            if (getTransactionDetailsForRow(row).accountId !== CapitalOneSavorAccountId) {
+            if (transactionDetails.accountId !== CapitalOneSavorAccountId) {
                 const buttonSplitAndPostToSW = document.createElement("button");
                 buttonSplitAndPostToSW.className = "monarch-helper-button";
                 if (existingButton) buttonSplitAndPostToSW.className += " " + existingButton.className;
@@ -139,21 +161,21 @@ function addUnsplitButtonIfNeeded(row) {
     }
 }
 
-function handleSplitAndPostToSWButtonClick(e, row) {
-    e.stopPropagation();
+async function handleSplitAndPostToSWButtonClick(e, row) {
+    if (e) e.stopPropagation();
 
     // if the split button was successful, then add the expense to Splitwise
-    if (handleSplitButtonClick(e, row)) {
-        addExpenseToSplitwise(getTransactionDetailsForRow(row), MySplitwiseUserId, DebSplitwiseUserId);
+    if (await handleSplitButtonClick(null, row)) {
+        const transactionDetails = await getTransactionDetailsForRow(row);
+        addExpenseToSplitwise(transactionDetails, MySplitwiseUserId, DebSplitwiseUserId);
     }
 }
 
 // Handle the split button click event
 async function handleSplitButtonClick(e, row) {
-    e.stopPropagation();
+    if (e) e.stopPropagation();
 
     let transactionDetails = await getTransactionDetailsForRow(row);
-    // let fullTransactionObject = getFullTransactionObject(row);
 
     // first split the transaction
     var splitResponse = await splitTransaction(transactionDetails, row);
@@ -180,15 +202,6 @@ async function handleSplitButtonClick(e, row) {
             if (addTagsResponseSuccess) {
                 showToast(`Transaction ${transactionDetails.id} split successfully!`, "success");
             }
-
-            // fullTransactionObject.isSplitTransaction = true;
-            // setFullTransactionObject(row, fullTransactionObject);
-
-            // // get div with class starting with AccountDetails__StyledTransactionsListWrapper-sc-
-            // var element = document.querySelector("div[class^='AccountDetails__StyledTransactionsListWrapper-sc-']");
-            // forceUpdateElement(element);
-
-            // everything went well, so return true
             return true;
         }
     }
@@ -291,7 +304,7 @@ async function splitTransaction(transactionDetails, row) {
             }`,
         };
 
-        return await callGraphQL(payload);
+        return await graphqlHelpers.callGraphQL(payload);
     }
 }
 
@@ -501,7 +514,7 @@ async function getTransactionDrawerDetails(transactionDetails, row) {
         };
 
 
-        return await callGraphQL(payload);
+        return await graphqlHelpers.callGraphQL(payload);
     }
 }
 
@@ -573,7 +586,7 @@ async function unsplitTransaction(originalTransactionId) {
             }`
     };
 
-    return await callGraphQL(payload);  
+    return await graphqlHelpers.callGraphQL(payload);  
 }
 
 // Add tags to the split transactions
@@ -670,7 +683,7 @@ async function hideSplitTransaction(transactionId) {
         }`
     };
 
-    return await callGraphQL(json);
+    return await graphqlHelpers.callGraphQL(json);
 
 }
 
@@ -691,7 +704,7 @@ async function getTagIdWithTagName(tagName) {
         }`
     };
 
-    const response = await callGraphQL(json);
+    const response = await graphqlHelpers.callGraphQL(json);
     const tags = response.householdTransactionTags;
 
     // Find the tag with the specified name
@@ -739,7 +752,7 @@ async function setTransactionTags(transactionId, tagIds) {
         }`
     };
 
-    return await callGraphQL(json);
+    return await graphqlHelpers.callGraphQL(json);
 }
 
 //--------- SPLITWISE FUNCTIONS ---------
@@ -1013,64 +1026,4 @@ function showToast(message, type = "success", fadeOutDuration = 5) {
         }, 1000);
     }, fadeOutDuration * 1000);
 }
-
-// Helper function to call the GraphQL API
-function callGraphQL(data) {
-    var options = {
-        mode: "cors",
-        method: "POST",
-        headers: {
-            accept: "*/*",
-            authorization: `Token ${getGraphqlToken()}`,
-            "content-type": "application/json",
-            origin: "https://app.monarchmoney.com",
-        },
-        body: JSON.stringify(data),
-    };
-
-    return fetch(GRAPHQL_URL, options)
-        .then((response) => response.json())
-        .then((data) => {
-            return data.data;
-        })
-        .catch((error) => {
-            console.error(version, error);
-
-            // determine what OperationName is being called. This can be found in the data object. Then show a toast accordingly
-            if (data.operationName === "Common_SplitTransactionMutation") {
-                showToast(
-                    `Error while splitting transaction ${transactionDetails.id}.`,
-                    "error"
-                );
-            } else if (data.operationName === "Web_TransactionDrawerUpdateTransaction"
-                && data.input.hideFromReports === true) {
-                showToast(
-                    `Error while hiding transaction ${transactionDetails.id}.`,
-                    "error"
-                );
-            } else if (data.operationName == "GetHouseholdTransactionTags") {
-                showToast(
-                    `Error while fetching tag details for ${SplitWithDebTagName}.`,
-                    "error"
-                );
-            } else if (data.operationName == "Web_SetTransactionTags") {
-                showToast(
-                    `Error while setting tags on transaction ${transactionDetails.id}.`,
-                    "error"
-                );
-            } else {
-                showToast(
-                    `Error while invoking GraphQL API for transaction ${transactionDetails.id}.`,
-                    "error"
-                );
-            }
-        });
-}
-
-// Helper function to get the GraphQL token from localStorage
-function getGraphqlToken() {
-    return JSON.parse(JSON.parse(localStorage.getItem("persist:root")).user)
-        .token;
-}
-
 
