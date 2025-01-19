@@ -94,7 +94,7 @@ function addSplitButtonsIfNeeded(row) {
         // If the transaction is not already split, add the buttons
         if (!isAlreadySplit) {
             // Check if this is a Savor transaction that should be split and the split button should be shown
-            if (settings.showSplitButtonForSavor && transactionDetails.accountId === SplitWithPartnerAccountId) {
+            if (settings.showSplitButtonForSharedAccount && transactionDetails.accountId === SplitWithPartnerAccountId) {
                
                 const buttonContainer = document.createElement("div");
                 buttonContainer.className = "button-container";
@@ -112,7 +112,7 @@ function addSplitButtonsIfNeeded(row) {
                 buttonContainer.appendChild(buttonSplit);
 
                 // Add the split and post to SW button to the button container, if the transaction is not from the Capital One Savor account
-                if (settings.showSplitAndPostToSplitwiseButtonForSavor && transactionDetails.accountId !== SplitWithPartnerAccountId) {
+                if (settings.showSplitAndPostToSplitwiseButtonForSharedAccount && transactionDetails.accountId !== SplitWithPartnerAccountId) {
                     const buttonSplitAndPostToSW = document.createElement("button");
                     buttonSplitAndPostToSW.className = "monarch-helper-button";
                     if (existingButton) buttonSplitAndPostToSW.className += " " + existingButton.className;

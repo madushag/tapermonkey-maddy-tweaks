@@ -97,14 +97,14 @@ function showCustomSettingsModal() {
 
                         <div class="mmm-setting-item">
                             <div class="mmm-setting-item-content">
-                                <label>Show Split Button for Savor Transactions</label>
+                                <label>Show Split Button for Shared Account Transactions</label>
                                 <label class="toggle-switch">
-                                    <input type="checkbox" id="show-split-button-for-savor" />
+                                    <input type="checkbox" id="show-split-button-for-shared-account" />
                                     <span class="slider"></span>
                                 </label>
                             </div>
                             <div class="mmm-modal-body-text-small">
-                                Show the split button for transactions from the Capital One Savor card
+                                Show the split button for transactions from the shared account
                             </div>
                         </div>
 
@@ -112,12 +112,12 @@ function showCustomSettingsModal() {
                             <div class="mmm-setting-item-content">
                                 <label>Show Split and Post to Splitwise Button</label>
                                 <label class="toggle-switch">
-                                    <input type="checkbox" id="show-split-and-post-to-splitwise-button-for-savor" />
+                                    <input type="checkbox" id="show-split-and-post-to-splitwise-button-for-shared-account" />
                                     <span class="slider"></span>
                                 </label>
                             </div>
                             <div class="mmm-modal-body-text-small">
-                                Show the split and post to Splitwise button for transactions from the Capital One Savor card
+                                Show the split and post to Splitwise button for transactions from the shared account
                             </div>
                         </div>
 
@@ -169,8 +169,8 @@ function showCustomSettingsModal() {
 
     // Load settings when opening modal
     const settings = JSON.parse(localStorage.getItem('mmm-settings') || '{}');
-    document.getElementById('show-split-button-for-savor').checked = settings.showSplitButtonForSavor || false;
-    document.getElementById('show-split-and-post-to-splitwise-button-for-savor').checked = settings.showSplitAndPostToSplitwiseButtonForSavor || false;
+    document.getElementById('show-split-button-for-shared-account').checked = settings.showSplitButtonForSharedAccount || false;
+    document.getElementById('show-split-and-post-to-splitwise-button-for-shared-account').checked = settings.showSplitAndPostToSplitwiseButtonForSharedAccount || false;
     document.getElementById('split-with-partner-tag-name').value = settings.splitWithPartnerTagName || '';
     document.getElementById('split-with-partner-account-id').value = settings.splitWithPartnerAccountId || '';
 
@@ -195,8 +195,8 @@ function showCustomSettingsModal() {
     // Save settings on change
     modal.addEventListener('change', (e) => {
         const settings = {
-            showSplitButtonForSavor: document.getElementById('show-split-button-for-savor').checked,
-            showSplitAndPostToSplitwiseButtonForSavor: document.getElementById('show-split-and-post-to-splitwise-button-for-savor').checked,
+            showSplitButtonForSharedAccount: document.getElementById('show-split-button-for-shared-account').checked,
+            showSplitAndPostToSplitwiseButtonForSharedAccount: document.getElementById('show-split-and-post-to-splitwise-button-for-shared-account').checked,
             splitWithPartnerTagName: document.getElementById('split-with-partner-tag-name').value,
             splitWithPartnerAccountId: document.getElementById('split-with-partner-account-id').value
         };
