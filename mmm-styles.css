@@ -146,11 +146,53 @@
     margin: var(--spacing-xl) 0;
 }
 
+.mmm-setting-item-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
 .mmm-setting-item label {
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
     cursor: pointer;
+    font-weight: 500;
+}
+
+.mmm-setting-item-content-input {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
+}
+
+.mmm-setting-input:focus {
+    outline: none;
+}
+
+.mmm-setting-input-dark {
+    width: 100%;
+    padding: var(--spacing-sm);
+    border-radius: 4px;
+    font-size: 18px;
+    transition: border-color var(--transition-normal);
+    background-color: var(--color-dark-bg);
+    color: var(--color-white);
+}
+
+.mmm-setting-input-light {
+    width: 100%;
+    padding: var(--spacing-sm);
+    border-radius: 4px;
+    font-size: 18px;
+    transition: border-color var(--transition-normal);
+    background-color: var(--color-light-bg);
+    color: var(--color-light-text);
+}
+
+.mmm-setting-item input {
+    width: 100%;
 }
 
 /* Toggle Switch Base Styles */
@@ -254,4 +296,7 @@
 .mmm-modal-light .toggle-switch input:checked + .slider {
     background-color: var(--color-toggle-checked);
 }
+
+
+
 

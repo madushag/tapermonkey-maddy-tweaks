@@ -18,15 +18,15 @@
 
 const version = "1.0";
 const GRAPHQL_URL = "https://api.monarchmoney.com/graphql"; // Ensure this is defined
-const SplitWithDebTagName = "Split with Deb";
-const NeedToAddToSplitwiseTagName = "Need to add to Splitwise";
-const CapitalOneSavorAccountId = "160250994677913986";
 const DebSplitwiseUserId = 782502;
 const MySplitwiseUserId = 139530;
 const HomeRevereSWGroupId = 1708251;
+let SplitWithPartnerTagName = "";
+let SplitWithPartnerAccountId = "";
 
 const scriptText = GM_getResourceText("sw_api_key");
 const SplitwiseApiKey = scriptText;
+
 
 // Create a MutationObserver to watch for changes in the URL
 const observer = new MutationObserver(() => {
@@ -40,6 +40,8 @@ observer.observe(document, { childList: true, subtree: true });
 async function onPageStructureChanged() {
 
     injectStylesIfNeeded();
+    SplitWithPartnerTagName = customSettings.getConfigValue("splitWithPartnerTagName");
+    SplitWithPartnerAccountId = customSettings.getConfigValue("splitWithPartnerAccountId");
 
     // Check if the page is the transactions page or the accounts details page
     if (window.location.href.includes("transactions") || window.location.href.includes("accounts/details")) {
@@ -89,42 +91,35 @@ function addSplitButtonsIfNeeded(row) {
         // Check if the transaction is already split
         let isAlreadySplit = transactionDetails.isSplitTransaction;
 
-        // If the transaction is not already split, add the buttons or auto-split
+        // If the transaction is not already split, add the buttons
         if (!isAlreadySplit) {
-            // Check if this is a Savor transaction that should be auto-split
-            if (settings.autoSplitSavor && transactionDetails.accountId === CapitalOneSavorAccountId) {
-                // Auto split and optionally post to Splitwise
-                handleSplitButtonClick(null, row).then(() => {
-                    if (settings.autoPostSplitwise) {
-                        handleSplitAndPostToSWButtonClick(null, row);
-                    }
-                });
-                return;
-            }
+            // Check if this is a Savor transaction that should be split and the split button should be shown
+            if (settings.showSplitButtonForSavor && transactionDetails.accountId === SplitWithPartnerAccountId) {
+               
+                const buttonContainer = document.createElement("div");
+                buttonContainer.className = "button-container";
 
-            const buttonContainer = document.createElement("div");
-            buttonContainer.className = "button-container";
+                // Insert the button container before the transaction icon container
+                const transactionIconContainer = row.querySelector('div[class*="TransactionOverview__Icons"]');
+                if (transactionIconContainer) transactionIconContainer.parentNode.insertBefore(buttonContainer, transactionIconContainer);
 
-            // Insert the button container before the transaction icon container
-            const transactionIconContainer = row.querySelector('div[class*="TransactionOverview__Icons"]');
-            if (transactionIconContainer) transactionIconContainer.parentNode.insertBefore(buttonContainer, transactionIconContainer);
+                // Add the split button to the button container
+                const buttonSplit = document.createElement("button");
+                buttonSplit.className = "monarch-helper-button";
+                if (existingButton) buttonSplit.className += " " + existingButton.className;
+                buttonSplit.innerHTML = "✂️";
+                buttonSplit.onclick = async (e) => await handleSplitButtonClick(e, row);
+                buttonContainer.appendChild(buttonSplit);
 
-            // Add the split button to the button container
-            const buttonSplit = document.createElement("button");
-            buttonSplit.className = "monarch-helper-button";
-            if (existingButton) buttonSplit.className += " " + existingButton.className;
-            buttonSplit.innerHTML = "✂️";
-            buttonSplit.onclick = (e) => handleSplitButtonClick(e, row);
-            buttonContainer.appendChild(buttonSplit);
-
-            // Add the split and post to SW button to the button container, if the transaction is not from the Capital One Savor account
-            if (transactionDetails.accountId !== CapitalOneSavorAccountId) {
-                const buttonSplitAndPostToSW = document.createElement("button");
-                buttonSplitAndPostToSW.className = "monarch-helper-button";
-                if (existingButton) buttonSplitAndPostToSW.className += " " + existingButton.className;
-                buttonSplitAndPostToSW.innerHTML = "📤";
-                buttonSplitAndPostToSW.onclick = async (e) => handleSplitAndPostToSWButtonClick(e, row);
-                buttonContainer.appendChild(buttonSplitAndPostToSW);
+                // Add the split and post to SW button to the button container, if the transaction is not from the Capital One Savor account
+                if (settings.showSplitAndPostToSplitwiseButtonForSavor && transactionDetails.accountId !== SplitWithPartnerAccountId) {
+                    const buttonSplitAndPostToSW = document.createElement("button");
+                    buttonSplitAndPostToSW.className = "monarch-helper-button";
+                    if (existingButton) buttonSplitAndPostToSW.className += " " + existingButton.className;
+                    buttonSplitAndPostToSW.innerHTML = "📤";
+                    buttonSplitAndPostToSW.onclick = async (e) => await handleSplitAndPostToSWButtonClick(e, row);
+                    buttonContainer.appendChild(buttonSplitAndPostToSW);
+                }
             }
         }
     }
@@ -165,8 +160,8 @@ async function handleSplitAndPostToSWButtonClick(e, row) {
     if (e) e.stopPropagation();
 
     // if the split button was successful, then add the expense to Splitwise
-    if (await handleSplitButtonClick(null, row)) {
-        const transactionDetails = await getTransactionDetailsForRow(row);
+    if (await handleSplitButtonClick(e, row)) {
+        const transactionDetails = getTransactionDetailsForRow(row);
         addExpenseToSplitwise(transactionDetails, MySplitwiseUserId, DebSplitwiseUserId);
     }
 }
@@ -175,7 +170,7 @@ async function handleSplitAndPostToSWButtonClick(e, row) {
 async function handleSplitButtonClick(e, row) {
     if (e) e.stopPropagation();
 
-    let transactionDetails = await getTransactionDetailsForRow(row);
+    let transactionDetails = getTransactionDetailsForRow(row);
 
     // first split the transaction
     var splitResponse = await splitTransaction(transactionDetails, row);
@@ -592,7 +587,7 @@ async function unsplitTransaction(originalTransactionId) {
 // Add tags to the split transactions
 async function addTagsToSplitTransactions(transactionDetails, splitTransactions) {
     // get the necessary tag IDs
-    var splitWithDebTagId = await getTagIdWithTagName(SplitWithDebTagName);
+    var splitWithDebTagId = await getTagIdWithTagName(SplitWithPartnerTagName);
 
     // Get all the tag IDs on the original transaction, thats not the split with deb tag
     let tagIds = transactionDetails.tags

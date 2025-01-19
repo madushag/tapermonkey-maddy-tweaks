@@ -94,28 +94,54 @@ function showCustomSettingsModal() {
                 </div>
                 <div class="mmm-modal-body mmm-modal-body-${theme}">
                     <div class="mmm-settings-section">
+
                         <div class="mmm-setting-item">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <label style="font-weight: 500;">Auto-split Capital One Savor</label>
+                            <div class="mmm-setting-item-content">
+                                <label>Show Split Button for Savor Transactions</label>
                                 <label class="toggle-switch">
-                                    <input type="checkbox" id="auto-split-savor" />
+                                    <input type="checkbox" id="show-split-button-for-savor" />
                                     <span class="slider"></span>
                                 </label>
                             </div>
                             <div class="mmm-modal-body-text-small">
-                                Automatically split transactions from Capital One Savor card
+                                Show the split button for transactions from the Capital One Savor card
                             </div>
                         </div>
+
                         <div class="mmm-setting-item">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <label style="font-weight: 500;">Auto-post to Splitwise</label>
+                            <div class="mmm-setting-item-content">
+                                <label>Show Split and Post to Splitwise Button</label>
                                 <label class="toggle-switch">
-                                    <input type="checkbox" id="auto-post-splitwise" />
+                                    <input type="checkbox" id="show-split-and-post-to-splitwise-button-for-savor" />
                                     <span class="slider"></span>
                                 </label>
                             </div>
                             <div class="mmm-modal-body-text-small">
-                                Automatically post split transactions to Splitwise
+                                Show the split and post to Splitwise button for transactions from the Capital One Savor card
+                            </div>
+                        </div>
+
+                        <div class="mmm-setting-item">
+                            <div class="mmm-setting-item-content-input">
+                                <label>Split With Partner Tag Name</label>
+                                <div class="mmm-setting-input-${theme}">
+                                    <input type="text" id="split-with-partner-tag-name" />
+                                </div>
+                            </div>
+                            <div class="mmm-modal-body-text-small">
+                                The name of the tag to use when splitting transactions with a partner
+                            </div>
+                        </div>
+
+                        <div class="mmm-setting-item">
+                            <div class="mmm-setting-item-content-input">
+                                <label>Monarch ID of Account With Split Transactions</label>
+                                <div class="mmm-setting-input-${theme}">
+                                    <input type="text" id="split-with-partner-account-id" />
+                                </div>
+                            </div>
+                            <div class="mmm-modal-body-text-small">
+                                The Monarch ID of the account that has the split transactions
                             </div>
                         </div>
                     </div>
@@ -143,8 +169,10 @@ function showCustomSettingsModal() {
 
     // Load settings when opening modal
     const settings = JSON.parse(localStorage.getItem('mmm-settings') || '{}');
-    document.getElementById('auto-split-savor').checked = settings.autoSplitSavor || false;
-    document.getElementById('auto-post-splitwise').checked = settings.autoPostSplitwise || false;
+    document.getElementById('show-split-button-for-savor').checked = settings.showSplitButtonForSavor || false;
+    document.getElementById('show-split-and-post-to-splitwise-button-for-savor').checked = settings.showSplitAndPostToSplitwiseButtonForSavor || false;
+    document.getElementById('split-with-partner-tag-name').value = settings.splitWithPartnerTagName || '';
+    document.getElementById('split-with-partner-account-id').value = settings.splitWithPartnerAccountId || '';
 
     // Close modal on X click with fade out
     closeBtn.addEventListener('click', () => {
@@ -167,16 +195,24 @@ function showCustomSettingsModal() {
     // Save settings on change
     modal.addEventListener('change', (e) => {
         const settings = {
-            autoSplitSavor: document.getElementById('auto-split-savor').checked,
-            autoPostSplitwise: document.getElementById('auto-post-splitwise').checked
+            showSplitButtonForSavor: document.getElementById('show-split-button-for-savor').checked,
+            showSplitAndPostToSplitwiseButtonForSavor: document.getElementById('show-split-and-post-to-splitwise-button-for-savor').checked,
+            splitWithPartnerTagName: document.getElementById('split-with-partner-tag-name').value,
+            splitWithPartnerAccountId: document.getElementById('split-with-partner-account-id').value
         };
         localStorage.setItem('mmm-settings', JSON.stringify(settings));
     });
+}
+
+function getConfigValue(key) {
+    const settings = JSON.parse(localStorage.getItem('mmm-settings') || '{}');
+    return settings[key] || '';
 }
 
 // Export the functions to be used in the main script
 window.customSettings = {
     addCustomSettingsLink: addCustomSettingsLink,
     applyModalStyles: applyModalStyles,
-    showCustomSettingsModal: showCustomSettingsModal
+    showCustomSettingsModal: showCustomSettingsModal,
+    getConfigValue: getConfigValue
 }   
