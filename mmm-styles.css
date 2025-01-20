@@ -56,7 +56,13 @@
 .toast-error { background-color: var(--color-error); }
 
 /* Helper Button Styles */
-.monarch-helper-button {
+.monarch-helper-button-split {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.monarch-helper-button-unsplit {
     padding: var(--spacing-sm) var(--spacing-lg);
     border-radius: 4px;
     cursor: pointer;
@@ -185,7 +191,7 @@
     width: 100%;
     padding: var(--spacing-sm);
     border-radius: 4px;
-    font-size: 18px;
+    font-size: 16px;
     transition: border-color var(--transition-normal);
     background-color: var(--color-light-bg);
     color: var(--color-light-text);
@@ -193,6 +199,9 @@
 
 .mmm-setting-item input {
     width: 100%;
+    border-radius: 4px;
+    border: 1px solid #ccc; /* Light border */
+    padding: var(--spacing-sm);
 }
 
 /* Toggle Switch Base Styles */
@@ -297,6 +306,59 @@
     background-color: var(--color-toggle-checked);
 }
 
+/* General styles for the select element */
+.mmm-setting-dropdown {
+    width: 100%; /* Full width */
+    padding: var(--spacing-sm); /* Padding for better spacing */
+    padding-right: 30px;
+    border: 1px solid #ccc; /* Light border */
+    border-radius: 4px; /* Rounded corners */
+    background-color: #fff; /* White background */
+    appearance: none; /* Remove default styling */
+    cursor: pointer; /* Pointer cursor */
+    position: relative; /* Positioning for dropdown arrow */
+}
 
+/* Focus outline style */
+.mmm-setting-dropdown:focus {
+    outline: none; /* Remove default outline */
+    border: 2px solid #00aaff; /* Custom border color */
+    box-shadow: 0 0 5px rgba(0, 170, 255, 0.5); /* Glow effect */
+}
+
+/* Style for the dropdown arrow */
+.mmm-setting-input-arrow {
+    content: '▼'; /* Dropdown arrow */
+    position: absolute; /* Positioning */
+    right: 18px; /* Right padding */
+    top: 56%; /* Center vertically */
+    transform: translateY(-50%); /* Adjust for centering */
+    pointer-events: none; /* Prevent interaction */
+}
+
+/* Style for the dropdown options */
+.mmm-setting-dropdown option {
+    padding: 10px; /* Padding for options */
+}
+
+/* Hover effect for options */
+.mmm-setting-dropdown option:hover {
+    background-color: #f0f0f0; /* Light gray on hover */
+}
+
+/* Placeholder styling */
+.mmm-setting-dropdown option[value=""] {
+    color: #aaa; /* Light gray for placeholder */
+}
+
+/* Custom styles for the dropdown container */
+.mmm-setting-input {
+    position: relative; /* Positioning for dropdown arrow */
+}
+
+.mmm-setting-divider {
+    border-bottom: 1px solid #ccc; /* Light border */
+    margin: var(--spacing-xl) 0;
+}   
 
 
